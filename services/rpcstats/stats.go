@@ -43,17 +43,3 @@ func CountCall(method string) {
 	value, _ := stats.counterPerMethod.LoadOrStore(method, uint(0))
 	stats.counterPerMethod.Store(method, value.(uint)+1)
 }
-
-func CountCallWithTag(method string, tag string) {
-	if tag == "" {
-		CountCall(method)
-		return
-	}
-
-	stats := getInstance()
-	value, _ := stats.counterPerMethodPerTag.LoadOrStore(tag, &sync.Map{})
-	methodMap := value.(*sync.Map)
-	value, _ = methodMap.LoadOrStore(method, uint(0))
-	methodMap.Store(method, value.(uint)+1)
-	stats.total++
-}

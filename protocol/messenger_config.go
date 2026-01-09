@@ -17,7 +17,6 @@ import (
 	"github.com/status-im/status-go/protocol/communities"
 	"github.com/status-im/status-go/protocol/discord"
 	"github.com/status-im/status-go/protocol/ens"
-	"github.com/status-im/status-go/protocol/protobuf"
 	"github.com/status-im/status-go/protocol/pushnotificationclient"
 	"github.com/status-im/status-go/server"
 	"github.com/status-im/status-go/services/browsers"
@@ -127,15 +126,6 @@ func messengerDefaultConfig() config {
 
 type Option func(*config) error
 
-// WithSystemMessagesTranslations is required for Group Chats which are currently disabled.
-// nolint: unused
-func WithSystemMessagesTranslations(t map[protobuf.MembershipUpdateEvent_EventType]string) Option {
-	return func(c *config) error {
-		c.systemMessagesTranslations.Init(t)
-		return nil
-	}
-}
-
 func WithCustomLogger(logger *zap.Logger) Option {
 	return func(c *config) error {
 		c.logger = logger
@@ -224,13 +214,6 @@ func WithPushNotifications() func(c *config) error {
 func WithPushNotificationServer(server PushNotificationServer) func(c *config) error {
 	return func(c *config) error {
 		c.pushNotificationServer = server
-		return nil
-	}
-}
-
-func WithAutoMessageDisabled() func(c *config) error {
-	return func(c *config) error {
-		c.featureFlags.DisableAutoMessageLoop = true
 		return nil
 	}
 }

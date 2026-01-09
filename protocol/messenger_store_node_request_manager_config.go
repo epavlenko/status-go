@@ -33,21 +33,3 @@ func WithWaitForResponseOption(waitForResponse bool) StoreNodeRequestOption {
 		c.WaitForResponse = waitForResponse
 	}
 }
-
-func WithStopWhenDataFound(stopWhenDataFound bool) StoreNodeRequestOption {
-	return func(c *StoreNodeRequestConfig) {
-		c.StopWhenDataFound = stopWhenDataFound
-	}
-}
-
-func WithInitialPageSize(initialPageSize uint64) StoreNodeRequestOption {
-	return func(c *StoreNodeRequestConfig) {
-		c.InitialPageSize = initialPageSize
-	}
-}
-
-func WithFurtherPageSize(furtherPageSize uint64) StoreNodeRequestOption {
-	return func(c *StoreNodeRequestConfig) {
-		c.FurtherPageSize = furtherPageSize
-	}
-}

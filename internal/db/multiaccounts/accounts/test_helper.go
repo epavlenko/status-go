@@ -355,15 +355,6 @@ func Contains[T comparable](container []T, element T, isEqual func(T, T) bool) b
 	return false
 }
 
-func HaveSameElements[T comparable](a []T, b []T, isEqual func(T, T) bool) bool {
-	for _, v := range a {
-		if !Contains(b, v, isEqual) {
-			return false
-		}
-	}
-	return true
-}
-
 func SameAccounts(expected, real *accsmanagementtypes.Account) bool {
 	return expected.Address == real.Address &&
 		expected.KeyUID == real.KeyUID &&

@@ -1,9 +1,7 @@
 package statusgo
 
 import (
-	"bytes"
 	"fmt"
-	"strings"
 )
 
 // APIResponse generic response from API.
@@ -14,28 +12,6 @@ type APIResponse struct {
 // APIKeyUIDResponse
 type APIKeyUIDResponse struct {
 	KeyUID string `json:"keyUID"`
-}
-
-// APIFieldError represents a set of errors
-// related to a parameter.
-type APIFieldError struct {
-	Parameter string     `json:"parameter,omitempty"`
-	Errors    []APIError `json:"errors"`
-}
-
-// Error string representation of APIFieldError.
-func (e APIFieldError) Error() string {
-	if len(e.Errors) == 0 {
-		return ""
-	}
-
-	buf := bytes.NewBufferString(fmt.Sprintf("Parameter: %s\n", e.Parameter))
-
-	for _, err := range e.Errors {
-		buf.WriteString(err.Error() + "\n")
-	}
-
-	return strings.TrimSpace(buf.String())
 }
 
 // APIError represents a single error.

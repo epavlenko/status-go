@@ -309,12 +309,6 @@ func WithMessageSigner(signer MessageSigner) ManagerOption {
 	}
 }
 
-func WithPermissionChecker(permissionChecker PermissionChecker) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.permissionChecker = permissionChecker
-	}
-}
-
 func WithCollectiblesManager(collectiblesManager CollectiblesManager) ManagerOption {
 	return func(opts *managerOptions) {
 		opts.collectiblesManager = collectiblesManager

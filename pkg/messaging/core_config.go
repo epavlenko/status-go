@@ -94,10 +94,3 @@ func WithSQLitePersistence(db *sql.DB) Options {
 		c.persistence = newSQLitePersistence(db)
 	}
 }
-
-// WithPersistence sets up the messaging persistence using the provided implementation.
-func WithPersistence(persistence Persistence) Options {
-	return func(c *config) {
-		c.persistence = persistence
-	}
-}

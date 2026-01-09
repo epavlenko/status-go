@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,25 +103,6 @@ func randomBool() bool {
 func randomInt(max int64) int {
 	r, _ := rand.Int(rand.Reader, big.NewInt(max))
 	return int(r.Int64())
-}
-
-func randomStringSlice() []string {
-	m := randomInt(7)
-	var result []string
-	for i := 0; i < m; i++ {
-		result = append(result, randomString())
-	}
-	sort.Strings(result)
-	return result
-}
-
-func randomCustomNodes() map[string]string {
-	result := make(map[string]string)
-	m := randomInt(7)
-	for i := 0; i < m; i++ {
-		result[randomString()] = randomString()
-	}
-	return result
 }
 
 func TestConfigValidate(t *testing.T) {

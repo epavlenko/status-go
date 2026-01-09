@@ -2,9 +2,7 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"reflect"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -33,43 +31,8 @@ func NetworksToChainIDs(networks []*params.Network) []uint64 {
 	return chainIDs
 }
 
-func ArrayContainsElement[T comparable](el T, arr []T) bool {
-	for _, e := range arr {
-		if e == el {
-			return true
-		}
-	}
-	return false
-}
-
 func IsSingleChainOperation(fromChainID, toChainID uint64) bool {
 	return fromChainID == toChainID
-}
-
-// CopyMapGeneric creates a copy of any map, if the deepCopyValue function is provided, it will be used to copy values.
-func CopyMapGeneric(original interface{}, deepCopyValueFn func(interface{}) interface{}) interface{} {
-	originalVal := reflect.ValueOf(original)
-	if originalVal.Kind() != reflect.Map {
-		return nil
-	}
-
-	newMap := reflect.MakeMap(originalVal.Type())
-	for iter := originalVal.MapRange(); iter.Next(); {
-		if deepCopyValueFn != nil {
-			newMap.SetMapIndex(iter.Key(), reflect.ValueOf(deepCopyValueFn(iter.Value().Interface())))
-		} else {
-			newMap.SetMapIndex(iter.Key(), iter.Value())
-		}
-	}
-
-	return newMap.Interface()
-}
-
-func GweiToEth(val *big.Float) *big.Float {
-	if val == nil {
-		return nil
-	}
-	return new(big.Float).Quo(val, big.NewFloat(1000000000))
 }
 
 func WeiToGwei(val *big.Int) *big.Float {
@@ -91,21 +54,6 @@ func GetBlockCreationTimeForChain(chainID uint64) time.Duration {
 		blockDuration = AverageBlockDurationForChain[ChainID(UnknownChainID)]
 	}
 	return blockDuration
-}
-
-// Special functions to hardcode the nature of some special chains (eg. Status Network), where we cannot deduce EIP-1559 compatibility in a generic way
-
-// IsPartiallyOrFullyGaslessChain returns true if the chain is fully or partially (no base or no priority fee) gasless
-func IsPartiallyOrFullyGaslessChain(chainID uint64) bool {
-	return chainID == StatusNetworkSepolia
-}
-
-// IsPartiallyOrFullyGaslessChainEIP1559Compatible throws an error if the chain is not partially or fully gasless, if it is, returns true if the chain is EIP-1559 compatible
-func IsPartiallyOrFullyGaslessChainEIP1559Compatible(chainID uint64) (bool, error) {
-	if !IsPartiallyOrFullyGaslessChain(chainID) {
-		return false, fmt.Errorf("chain %d is not supposed to be gasless", chainID) // for non-gasless chains, we should not use this function
-	}
-	return chainID == StatusNetworkSepolia, nil
 }
 
 func ToCallArg(msg ethereum.CallMsg) interface{} {

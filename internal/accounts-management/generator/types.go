@@ -189,26 +189,3 @@ func (g GeneratedAccountInfo) MarshalJSON() ([]byte, error) {
 	infoJSON[0] = ','
 	return append(accountInfoJSON[:len(accountInfoJSON)-1], infoJSON...), nil
 }
-
-type GeneratedAndDerivedAccountInfo struct {
-	GeneratedAccountInfo
-	Derived map[string]AccountInfo `json:"derived"`
-}
-
-func (g GeneratedAndDerivedAccountInfo) MarshalJSON() ([]byte, error) {
-	accountInfoJSON, err := g.GeneratedAccountInfo.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	type info struct {
-		Derived map[string]AccountInfo `json:"derived"`
-	}
-	infoJSON, err := json.Marshal(info{
-		Derived: g.Derived,
-	})
-	if err != nil {
-		return nil, err
-	}
-	infoJSON[0] = ','
-	return append(accountInfoJSON[:len(accountInfoJSON)-1], infoJSON...), nil
-}
