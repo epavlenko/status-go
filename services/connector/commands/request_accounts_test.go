@@ -51,7 +51,7 @@ func TestRequestAccountsAcceptedAndRequestAgain(t *testing.T) {
 	accountAddress := types.Address{0x03}
 	dAppPermissionGranted := false
 
-	signal.SetMobileSignalHandler(signal.MobileSignalHandler(func(s []byte) {
+	signal.SetHandler(signal.Handler(func(s []byte) {
 		var evt EventType
 		err := json.Unmarshal(s, &evt)
 		assert.NoError(t, err)
@@ -72,7 +72,7 @@ func TestRequestAccountsAcceptedAndRequestAgain(t *testing.T) {
 			dAppPermissionGranted = true
 		}
 	}))
-	t.Cleanup(signal.ResetMobileSignalHandler)
+	t.Cleanup(signal.ResetHandler)
 
 	expectedResponse := FormatAccountAddressToResponse(accountAddress)
 	response, err := state.cmd.Execute(state.ctx, request)
@@ -104,7 +104,7 @@ func TestRequestAccountsRejected(t *testing.T) {
 	request, err := ConstructRPCRequest("eth_requestAccounts", []interface{}{}, &testDAppData)
 	assert.NoError(t, err)
 
-	signal.SetMobileSignalHandler(signal.MobileSignalHandler(func(s []byte) {
+	signal.SetHandler(signal.Handler(func(s []byte) {
 		var evt EventType
 		err := json.Unmarshal(s, &evt)
 		assert.NoError(t, err)
@@ -121,7 +121,7 @@ func TestRequestAccountsRejected(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}))
-	t.Cleanup(signal.ResetMobileSignalHandler)
+	t.Cleanup(signal.ResetHandler)
 
 	_, err = state.cmd.Execute(state.ctx, request)
 	assert.Equal(t, ErrRequestAccountsRejectedByUser, err)

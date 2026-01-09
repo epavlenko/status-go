@@ -43,7 +43,7 @@ func TestRevokePermissionsSucceeded(t *testing.T) {
 	sharedAccount := types2.BytesToAddress(types2.FromHex("0x6d0aa2a774b74bb1d36f97700315adf962c69fcg"))
 	dAppPermissionRevoked := false
 
-	signal.SetMobileSignalHandler(signal.MobileSignalHandler(func(s []byte) {
+	signal.SetHandler(signal.Handler(func(s []byte) {
 		var evt EventType
 		err := json.Unmarshal(s, &evt)
 		assert.NoError(t, err)
@@ -53,7 +53,7 @@ func TestRevokePermissionsSucceeded(t *testing.T) {
 			dAppPermissionRevoked = true
 		}
 	}))
-	t.Cleanup(signal.ResetMobileSignalHandler)
+	t.Cleanup(signal.ResetHandler)
 
 	err := PersistDAppData(state.walletDb, testDAppData, sharedAccount, 0x123)
 	assert.NoError(t, err)
