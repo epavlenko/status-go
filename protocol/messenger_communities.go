@@ -1983,7 +1983,7 @@ func (m *Messenger) acceptRequestToJoinCommunity(requestToJoin *communities.Requ
 			CommunityDescriptionProtocolMessage: descriptionMessage,
 		}
 
-		if m.archiveManager.IsReady() {
+		if m.archiveManager.IsStarted() {
 			m.logger.Debug("[Messenger][acceptRequestToJoinCommunity] checking if currently seeding", zap.String("communityID", community.IDString()))
 			archiveLink, err := m.communitiesManager.GetLastSeenArchiveLink(community.ID())
 			if err != nil {
@@ -2529,7 +2529,7 @@ func (m *Messenger) CreateCommunity(request *requests.CreateCommunity, createDef
 		return nil, err
 	}
 
-	if m.archiveManager.IsReady() && communitySettings.HistoryArchiveSupportEnabled {
+	if m.archiveManager.IsStarted() && communitySettings.HistoryArchiveSupportEnabled {
 		go m.archiveManager.StartHistoryArchiveTasksInterval(community.ID(), community.UniversalChatID(), community.Encrypted(), messageArchiveInterval)
 	}
 
@@ -2708,7 +2708,7 @@ func (m *Messenger) EditCommunity(request *requests.EditCommunity) (*MessengerRe
 
 	id := community.ID()
 
-	if m.archiveManager.IsReady() {
+	if m.archiveManager.IsStarted() {
 		lastSeenArchiveLink, err := m.communitiesManager.GetLastSeenArchiveLink(id)
 		if err != nil {
 			return nil, err
@@ -2792,7 +2792,7 @@ func (m *Messenger) ImportCommunity(ctx context.Context, key *ecdsa.PrivateKey) 
 		return nil, err
 	}
 
-	if m.archiveManager.IsReady() {
+	if m.archiveManager.IsStarted() {
 		var communities []*communities.Community
 		communities = append(communities, community)
 		go m.InitHistoryArchiveTasks(communities)
