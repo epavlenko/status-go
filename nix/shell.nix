@@ -24,18 +24,18 @@ in mkShell {
     nim
     lib-sds-pkg
     libwaku
+    libstorage
   ];
 
   shellHook = ''
     export USE_SYSTEM_NIM=1
 
     export LIBWAKU_PATH="${pkgs.libwaku}"
+    export LIBSTORAGE_PATH="${pkgs.libstorage}"
     export LIBSDS_PATH="${pkgs.lib-sds-pkg}"
 
-    export LD_LIBRARY_PATH="${pkgs.libwaku}/bin:${pkgs.lib-sds-pkg}/lib:''${LD_LIBRARY_PATH:-}"
-
-    export CGO_CFLAGS="-I${pkgs.libwaku}/include -I${pkgs.lib-sds-pkg}/include"
-    export CGO_LDFLAGS="-L${pkgs.libwaku}/bin -L${pkgs.lib-sds-pkg}/lib"
+    export CGO_CFLAGS="-I${pkgs.libstorage}/include -I${pkgs.libwaku}/include -I${pkgs.lib-sds-pkg}/include"
+    export CGO_LDFLAGS="-L${pkgs.libstorage}/lib -lstorage -Wl,-rpath,${pkgs.libstorage}/lib -L${pkgs.libwaku}/bin -L${pkgs.lib-sds-pkg}/lib -lsds"
 
     echo "CGO_CFLAGS: $CGO_CFLAGS"
     echo "CGO_LDFLAGS: $CGO_LDFLAGS"
@@ -48,6 +48,10 @@ in mkShell {
   ''
   + lib.optionalString (stdenv.isDarwin) ''
     export PATH="/usr/bin:$PATH"
+    export DYLD_LIBRARY_PATH="${pkgs.libstorage}/lib:${pkgs.libwaku}/bin:${pkgs.lib-sds-pkg}/lib:''${DYLD_LIBRARY_PATH:-}"
+  ''
+  + lib.optionalString (!stdenv.isDarwin) ''
+    export LD_LIBRARY_PATH="${pkgs.libstorage}/lib:${pkgs.libwaku}/bin:${pkgs.lib-sds-pkg}/lib:''${LD_LIBRARY_PATH:-}"
   '';
   # Sandbox causes Xcode issues on MacOS. Requires sandbox=relaxed.
   # https://github.com/status-im/status-mobile/pull/13912

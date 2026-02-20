@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "circom-compat": {
+      "inputs": {
+        "nixpkgs": [
+          "logos-storage-nim",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1736521871,
+        "narHash": "sha256-d34XNLg9NGPEOARHW+BIOAWalkHdEUAwsv3mpLZQxds=",
+        "owner": "logos-storage",
+        "repo": "circom-compat-ffi",
+        "rev": "8cd4ed44fdafe59d4ec1184420639cae4c4dbab9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "logos-storage",
+        "repo": "circom-compat-ffi",
+        "type": "github"
+      }
+    },
     "lmn": {
       "inputs": {
         "nixpkgs": [
@@ -22,6 +43,30 @@
         "submodules": true,
         "type": "git",
         "url": "https://github.com/logos-messaging/logos-messaging-nim"
+      }
+    },
+    "logos-storage-nim": {
+      "inputs": {
+        "circom-compat": "circom-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768220612,
+        "narHash": "sha256-eFZPyc7MMbjYuHUCaDMcs0HpQHFQmdvb/Hw0/66G1ZE=",
+        "ref": "refs/heads/master",
+        "rev": "e59e98ba9226d2f24c28df7b81c84be3d91267fd",
+        "revCount": 866,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/logos-storage/logos-storage-nim"
+      },
+      "original": {
+        "rev": "e59e98ba9226d2f24c28df7b81c84be3d91267fd",
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/logos-storage/logos-storage-nim"
       }
     },
     "nim-sds": {
@@ -80,6 +125,7 @@
     "root": {
       "inputs": {
         "lmn": "lmn",
+        "logos-storage-nim": "logos-storage-nim",
         "nim-sds": "nim-sds",
         "nixpkgs": "nixpkgs_2"
       }
