@@ -134,6 +134,7 @@ pipeline {
       environment {
         TEST_POSTGRES_PORT = "${env.DB_PORT}"
         NWAKU_REST_PORT = "${env.NWAKU_REST_PORT}"
+        NWAKU_REST_HOST = "127.0.0.1"
       }
       steps { script {
         def ipAddress = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
@@ -162,6 +163,21 @@ pipeline {
             "--filter",
             "--lightpush"
           ].join(' ')) { c2 ->
+            sh """
+              echo "Checking nwaku container and REST port..."
+              docker ps --filter "name=${NWAKU_CONT}" --format "{{.Names}} {{.Status}}"
+              for i in \$(seq 1 30); do
+                if curl -fsS "http://127.0.0.1:${NWAKU_REST_PORT}/health" >/dev/null 2>&1; then
+                  echo "nwaku REST is healthy on port ${NWAKU_REST_PORT}"
+                  curl -fsS "http://127.0.0.1:${NWAKU_REST_PORT}/debug/v1/info" >/dev/null
+                  exit 0
+                fi
+                sleep 1
+              done
+              echo "nwaku REST health check failed on port ${NWAKU_REST_PORT}"
+              docker logs "${NWAKU_CONT}" || true
+              exit 1
+            """
             withCredentials([
               string(
                 credentialsId: 'codecov-repository-upload-token',
