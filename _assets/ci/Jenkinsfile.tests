@@ -176,8 +176,10 @@ pipeline {
         }
       } }
       post { cleanup { /* Leftover DB containers. */
-        sh "docker rm -f ${DB_CONT} || true"
-        sh "docker rm -f ${NWAKU_CONT} || true"
+        script {
+          sh(returnStatus: true, script: "docker rm -f ${DB_CONT}")
+          sh(returnStatus: true, script: "docker rm -f ${NWAKU_CONT}")
+        }
       } }
     }
   } // stages
