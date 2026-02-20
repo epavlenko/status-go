@@ -168,6 +168,7 @@ pipeline {
                 variable: 'CODECOV_TOKEN'
               ),
             ]) {
+              nix.develop('USE_NWAKU=${USE_NWAKU} make test-libstorage USE_LOGOS_STORAGE=true V=1', pure: false)
               nix.develop('USE_NWAKU=${USE_NWAKU} make test-unit V=1', pure: false)
             }
             archiveArtifacts('report_*.xml, test_*.log, test-coverage.html')
