@@ -21,7 +21,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     logos-storage-nim = {
-      url = "git+https://github.com/logos-storage/logos-storage-nim?submodules=1&rev=e59e98ba9226d2f24c28df7b81c84be3d91267fd";
+      url = "git+https://github.com/logos-storage/logos-storage-nim?submodules=1&rev=3c09f008bb5266a669fd19f18368f9e8b861b664";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # We cannot do follows since the nim-unwrapped-2_0 doesn't exist in this nixpkgs version above
@@ -64,6 +64,7 @@
       statusGo = import ./nix/pkgs/status-go { inherit self pkgs; };
     in {
       status-go-library = statusGo.library;
+    } // pkgs.lib.optionalAttrs (statusGo ? mobile) {
       status-go-mobile-android = statusGo.mobile.android {};
       status-go-mobile-ios = statusGo.mobile.ios {};
     });

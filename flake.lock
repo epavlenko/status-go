@@ -53,17 +53,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1768220612,
-        "narHash": "sha256-eFZPyc7MMbjYuHUCaDMcs0HpQHFQmdvb/Hw0/66G1ZE=",
+        "lastModified": 1769016529,
+        "narHash": "sha256-pzUrdFKSEraZQzO2a9Uj5oDMas+Vtpu6+p4bG+lRnsk=",
         "ref": "refs/heads/master",
-        "rev": "e59e98ba9226d2f24c28df7b81c84be3d91267fd",
-        "revCount": 866,
+        "rev": "3c09f008bb5266a669fd19f18368f9e8b861b664",
+        "revCount": 877,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/logos-storage/logos-storage-nim"
       },
       "original": {
-        "rev": "e59e98ba9226d2f24c28df7b81c84be3d91267fd",
+        "rev": "3c09f008bb5266a669fd19f18368f9e8b861b664",
         "submodules": true,
         "type": "git",
         "url": "https://github.com/logos-storage/logos-storage-nim"
