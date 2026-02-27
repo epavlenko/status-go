@@ -2,8 +2,8 @@
 .PHONY: statusgo-ios-library statusgo-android-library
 .PHONY: build-libwaku test-libwaku clean-libwaku rebuild-libwaku
 .PHONY: build-libsds clean-libsds rebuild-libsds
-.PHONY: fetch-libstorage clean-libstorage test-libstorage
-.PHONY: logos-storage-help
+.PHONY: fetch-storage clean-storage test-storage
+.PHONY: storage-help
 
 # Clear any GOROOT set outside of the Nix shell
 export GOROOT=
@@ -181,8 +181,9 @@ ifeq ($(USE_LOGOS_STORAGE),true)
 	RUNTIME_LIB_DIRS := $(LOGOS_STORAGE_LIB_DIR):$(RUNTIME_LIB_DIRS)
 endif
 
-fetch-libstorage: ##@build Fetch libstorage for native non-Nix workflows
-ifeq ($(USE_LOGOS_STORAGE),true)
+build-storage: fetch-storage
+
+fetch-storage: ##@build Fetch libstorage for native non-Nix workflows
 ifdef LIBSTORAGE_PATH
 	@echo "Using libstorage from Nix shell: $(LIBSTORAGE_PATH)"
 else
@@ -196,28 +197,25 @@ else
 		rm -f "$(LIBS_DIR)"/logos-storage-*.zip; \
 	fi
 endif
-else
-	@echo "USE_LOGOS_STORAGE=false, skipping libstorage fetch"
-endif
 
-clean-libstorage: ##@other Remove downloaded native libstorage artifacts
+clean-storage: ##@other Remove downloaded native libstorage artifacts
 	@echo "Removing local libstorage artifacts from $(LIBS_DIR)"
 	@rm -f "$(LIBS_DIR)"/libstorage.so "$(LIBS_DIR)"/libstorage.dylib "$(LIBS_DIR)"/libstorage.dll "$(LIBS_DIR)"/libstorage.h
 
-test-libstorage: fetch-libstorage $(LIBSDS) ##@tests Run logosstorage package tests via gotestsum
-ifeq ($(USE_LOGOS_STORAGE),true)
-	go generate -tags "$(BUILD_TAGS)" ./services/logosstorage
-	LD_LIBRARY_PATH="$(RUNTIME_LIB_DIRS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_CFLAGS="$(CGO_CFLAGS)" \
-	gotestsum --packages="./services/logosstorage" -f testname -- -count 1 -tags "$(BUILD_TAGS) gowaku_skip_migrations"
-else
-	$(error test-libstorage requires USE_LOGOS_STORAGE=true)
-endif
+test-storage: fetch-storage $(LIBSDS) ##@tests Run logosstorage package tests via gotestsum
+	go generate -tags "use_logos_storage $(BUILD_TAGS)" ./services/logosstorage
+	LD_LIBRARY_PATH="$(LOGOS_STORAGE_LIB_DIR):$(RUNTIME_LIB_DIRS)" \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) -L$(LOGOS_STORAGE_LIB_DIR) -lstorage -Wl,-rpath,$(LOGOS_STORAGE_LIB_DIR)" \
+	CGO_CFLAGS="$(CGO_CFLAGS) -I$(LOGOS_STORAGE_INC_DIR)" \
+	gotestsum --packages="./services/logosstorage" -f testname -- -count 1 -tags "use_logos_storage $(BUILD_TAGS) gowaku_skip_migrations"
 
-logos-storage-help: ##@build Show logos-storage build/test toggles and env vars
-	@echo "USE_LOGOS_STORAGE=true enables:"
+storage-help: ##@build Show logos-storage build/test toggles and env vars
+	@echo "USE_LOGOS_STORAGE=true enables for builds:"
 	@echo "  - build tag: use_logos_storage"
 	@echo "  - CGO flags for libstorage include/library paths"
 	@echo "  - runtime library path wiring for tests"
+	@echo ""
+	@echo "test-storage always runs with logos-storage support enabled."
 	@echo ""
 	@echo "Variables:"
 	@echo "  USE_LOGOS_STORAGE          (default: false)"
@@ -227,8 +225,10 @@ logos-storage-help: ##@build Show logos-storage build/test toggles and env vars
 	@echo "  FUNCTIONAL_TESTS_BUILD_TAGS        (default: gowaku_no_rln)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make test-storage"
 	@echo "  make test-unit USE_LOGOS_STORAGE=true"
-	@echo "  make fetch-libstorage USE_LOGOS_STORAGE=true"
+	@echo "  make fetch-storage"
+	@echo "  make build-storage USE_LOGOS_STORAGE=true"
 	@echo "  FUNCTIONAL_TESTS_USE_LOGOS_STORAGE=true ./scripts/run_functional_tests.sh"
 
 # mbedtls configuration for go-sqlcipher
@@ -309,7 +309,7 @@ nix-purge: ##@nix Completely remove Nix setup, including /nix directory
 all: $(GO_CMD_NAMES)
 
 .PHONY: $(GO_CMD_NAMES) $(GO_CMD_PATHS) $(GO_CMD_BUILDS)
-$(GO_CMD_BUILDS): generate fetch-libstorage $(LIBWAKU) $(LIBSDS)
+$(GO_CMD_BUILDS): generate fetch-storage $(LIBWAKU) $(LIBSDS)
 $(GO_CMD_BUILDS): ##@build Build any Go project from cmd folder
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CGO_CFLAGS="$(CGO_CFLAGS)" \
 	go build -v \
@@ -549,7 +549,7 @@ docker-test: ##@tests Run tests in a docker container with golang.
 
 test: test-unit ##@tests Run basic, short tests during development
 
-test-unit-prep: fetch-libstorage $(LIBSDS)
+test-unit-prep: fetch-storage $(LIBSDS)
 test-unit-prep: generate
 test-unit-prep: export BUILD_TAGS ?=
 test-unit-prep: export UNIT_TEST_DRY_RUN ?= false
@@ -603,7 +603,7 @@ lint:
 lint-fix: generate
 	golangci-lint --build-tags '$(BUILD_TAGS) lint' run --fix ./...
 
-clean: clean-libstorage ##@other Cleanup
+clean: clean-storage ##@other Cleanup
 	rm -fr build/bin/*
 
 git-clean:
