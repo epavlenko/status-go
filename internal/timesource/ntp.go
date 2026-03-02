@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/status-im/status-go/common"
+	gocommon "github.com/status-im/status-go/common"
 	"github.com/status-im/status-go/internal/logutils"
 )
 
@@ -250,15 +251,16 @@ func (s *ntpTimeSource) Start(ctx context.Context) error {
 	s.lastMonotonic = currentTime
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Attempt to update the offset synchronously so that user can have reliable messages right away
-	err := s.updateOffset()
-	if err != nil {
-		// Failure to update can occur if the node is offline.
-		// Instead of returning an error, continue with the process as the update will be retried periodically.
-		logutils.ZapLogger().Error("failed to update offset", zap.Error(err))
-	}
-
-	s.runPeriodically(ctx, s.updateOffset, err == nil)
+	go func() {
+		defer gocommon.LogOnPanic()
+		err := s.updateOffset()
+		if err != nil {
+			// Failure to update can occur if the node is offline.
+			// Instead of returning an error, continue with the process as the update will be retried periodically.
+			logutils.ZapLogger().Error("failed to update offset", zap.Error(err))
+		}
+		s.runPeriodically(ctx, s.updateOffset, err == nil)
+	}()
 
 	s.started = true
 	s.cancel = cancel
