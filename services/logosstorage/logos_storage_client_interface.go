@@ -6,8 +6,6 @@ package logosstorage
 import (
 	"context"
 	"io"
-
-	"github.com/logos-storage/logos-storage-go-bindings/storage"
 )
 
 //go:generate sh -c "go tool mockgen -package=mock_logosstorage -source=logos_storage_client_interface.go -destination=mock/logos_storage_client_interface.go && { printf '//go:build use_logos_storage\n// +build use_logos_storage\n\n'; cat mock/logos_storage_client_interface.go; } > mock/logos_storage_client_interface.go.tmp && mv mock/logos_storage_client_interface.go.tmp mock/logos_storage_client_interface.go"
@@ -41,7 +39,7 @@ type LogosStorageClientInterface interface {
 
 	// Peer Management methods
 	PeerId() (string, error)
-	Debug() (storage.DebugInfo, error)
+	Debug() (LogosStorageDebugInfo, error)
 	Connect(peerId string, peerAddresses []string) error
 
 	// logging methods

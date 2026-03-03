@@ -1,5 +1,5 @@
-//go:build use_logos_storage
-// +build use_logos_storage
+//go:build use_logos_storage && !lint
+// +build use_logos_storage,!lint
 
 package logosstorage
 
@@ -154,8 +154,12 @@ func (c *LogosStorageClient) PeerId() (string, error) {
 	return c.node.PeerId()
 }
 
-func (c *LogosStorageClient) Debug() (storage.DebugInfo, error) {
-	return c.node.Debug()
+func (c *LogosStorageClient) Debug() (LogosStorageDebugInfo, error) {
+	info, err := c.node.Debug()
+	if err != nil {
+		return LogosStorageDebugInfo{}, err
+	}
+	return toLogosStorageDebugInfo(info), nil
 }
 
 func (c *LogosStorageClient) Connect(peerId string, peerAddresses []string) error {
