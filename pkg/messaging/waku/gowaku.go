@@ -23,7 +23,7 @@ package wakuv2
 
 // Generate a mock for peerAddressHandler. Keep it in same dir and package, as it's a private type.
 // Yet we name the file _test.go to keep it only available in testing environment.
-//go:generate go tool mockgen -source=gowaku.go -destination=gowaku_mock_test.go -package=wakuv2
+//go:generate bash -c "printf '%s\n%s\n\n' '//go:build !use_nwaku' '// +build !use_nwaku' > gowaku_mock_test.go && go tool mockgen -source=gowaku.go -destination=gowaku_mock_test.go.tmp -package=wakuv2 && cat gowaku_mock_test.go.tmp >> gowaku_mock_test.go && rm -f gowaku_mock_test.go.tmp"
 
 import (
 	"context"

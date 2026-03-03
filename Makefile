@@ -2,7 +2,7 @@
 .PHONY: statusgo-ios-library statusgo-android-library
 .PHONY: build-libwaku test-libwaku clean-libwaku rebuild-libwaku
 .PHONY: build-libsds clean-libsds rebuild-libsds
-.PHONY: fetch-storage clean-storage test-storage
+.PHONY: build-storage fetch-storage clean-storage test-storage
 .PHONY: storage-help
 
 # Clear any GOROOT set outside of the Nix shell
@@ -110,8 +110,9 @@ ifeq ($(USE_NWAKU), true)
     NWAKU_VERSION ?= v0.37.0-rc.3
     NWAKU_SOURCE_DIR ?= $(GIT_ROOT)/../nwaku
     LIBWAKU := $(NWAKU_SOURCE_DIR)/build/libwaku.$(LIB_EXT)
-    CGO_CFLAGS+=-I$(NWAKU_SOURCE_DIR)/library
-	CGO_LDFLAGS+=-L$(NWAKU_SOURCE_DIR)/build -lwaku -Wl,-rpath,$(NWAKU_SOURCE_DIR)/build
+    # Prefer locally built nwaku headers/lib over any shell-provided libwaku.
+    CGO_CFLAGS:=-I$(NWAKU_SOURCE_DIR)/library $(CGO_CFLAGS)
+	CGO_LDFLAGS:=-L$(NWAKU_SOURCE_DIR)/build -lwaku -Wl,-rpath,$(NWAKU_SOURCE_DIR)/build $(CGO_LDFLAGS)
 endif
 
 # `nim-sds` variables
@@ -177,6 +178,9 @@ ifeq ($(USE_LOGOS_STORAGE),true)
 endif
 
 RUNTIME_LIB_DIRS := $(NIM_SDS_LIB_DIR)
+ifeq ($(USE_NWAKU),true)
+	RUNTIME_LIB_DIRS := $(NWAKU_SOURCE_DIR)/build:$(RUNTIME_LIB_DIRS)
+endif
 ifeq ($(USE_LOGOS_STORAGE),true)
 	RUNTIME_LIB_DIRS := $(LOGOS_STORAGE_LIB_DIR):$(RUNTIME_LIB_DIRS)
 endif
@@ -203,6 +207,9 @@ clean-storage: ##@other Remove downloaded native libstorage artifacts
 	@rm -f "$(LIBS_DIR)"/libstorage.so "$(LIBS_DIR)"/libstorage.dylib "$(LIBS_DIR)"/libstorage.dll "$(LIBS_DIR)"/libstorage.h
 
 test-storage: fetch-storage $(LIBSDS) ##@tests Run logosstorage package tests via gotestsum
+ifeq ($(USE_NWAKU),true)
+test-storage: $(LIBWAKU)
+endif
 	go generate -tags "use_logos_storage $(BUILD_TAGS)" ./services/logosstorage
 	LD_LIBRARY_PATH="$(LOGOS_STORAGE_LIB_DIR):$(RUNTIME_LIB_DIRS)" \
 	CGO_LDFLAGS="$(CGO_LDFLAGS) -L$(LOGOS_STORAGE_LIB_DIR) -lstorage -Wl,-rpath,$(LOGOS_STORAGE_LIB_DIR)" \
@@ -228,7 +235,7 @@ storage-help: ##@build Show logos-storage build/test toggles and env vars
 	@echo "  make test-storage"
 	@echo "  make test-unit USE_LOGOS_STORAGE=true"
 	@echo "  make fetch-storage"
-	@echo "  make build-storage USE_LOGOS_STORAGE=true"
+	@echo "  make build-storage"
 	@echo "  FUNCTIONAL_TESTS_USE_LOGOS_STORAGE=true ./scripts/run_functional_tests.sh"
 
 # mbedtls configuration for go-sqlcipher
@@ -550,6 +557,9 @@ docker-test: ##@tests Run tests in a docker container with golang.
 test: test-unit ##@tests Run basic, short tests during development
 
 test-unit-prep: fetch-storage $(LIBSDS)
+ifeq ($(USE_NWAKU),true)
+test-unit-prep: $(LIBWAKU)
+endif
 test-unit-prep: generate
 test-unit-prep: export BUILD_TAGS ?=
 test-unit-prep: export UNIT_TEST_DRY_RUN ?= false
@@ -560,7 +570,7 @@ test-unit-prep: export UNIT_TEST_REPORT_CODECOV ?= false
 
 test-unit: test-unit-prep
 test-unit: export UNIT_TEST_RERUN_FAILS ?= true
-test-unit: export UNIT_TEST_PACKAGES ?= $(call sh, go list ./... | \
+test-unit: export UNIT_TEST_PACKAGES ?= $(call sh, go list -tags '$(BUILD_TAGS)' ./... | \
 	grep -v /t/e2e | \
 	grep -v /t/benchmarks | \
 	grep -v /transactions/fake | \
@@ -593,15 +603,15 @@ benchmark:
 	@./scripts/run_benchmark.sh
 
 lint-panics: generate
-	GOFLAGS=-tags='$(BUILD_TAGS),lint' \
+	GOFLAGS=-tags='$(BUILD_TAGS),lint,use_logos_storage' \
 	go tool goroutine-defer-guard -test=false -target github.com/status-im/status-go/common.LogOnPanic ./...
 
 lint: generate lint-panics
 lint:
-	golangci-lint --build-tags '$(BUILD_TAGS) lint' run ./...
+	$(CGO_ENV) golangci-lint --build-tags '$(BUILD_TAGS) lint use_logos_storage' run ./...
 
 lint-fix: generate
-	golangci-lint --build-tags '$(BUILD_TAGS) lint' run --fix ./...
+	golangci-lint --build-tags '$(BUILD_TAGS) lint use_logos_storage' run --fix ./...
 
 clean: clean-storage ##@other Cleanup
 	rm -fr build/bin/*
