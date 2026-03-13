@@ -254,3 +254,45 @@ class TestEnsRegistration:
         expire_hex_after = self.rpc_client.ens_service.expire_at(CHAIN_ID, username)
         expire_time_after = int(expire_hex_after, 16)
         assert expire_time_after == expire_time, f"Expiration changed after time advance: was {expire_time}, now {expire_time_after}"
+
+    def test_ens_release(self):
+        public_key = self.rpc_client.public_key
+        username = "releaseuser"
+        full_name = f"{username}.stateofus.eth"
+        registrar = self.ens_addresses["registrar"]
+        one_year_seconds = 365 * 24 * 60 * 60
+
+        register_ens_name(
+            self.foundry,
+            self.ens_addresses,
+            username,
+            constants.DEPLOYER_ACCOUNT.address,
+            public_key,
+        )
+        sync_registry_to_well_known(self.foundry, self.ens_addresses["registry"], username)
+        logger.info(f"Registered {full_name}")
+
+        self.rpc_client.ens_service.add(CHAIN_ID, full_name)
+        usernames = self.rpc_client.ens_service.get_ens_usernames()
+        assert any(u.get("username") == full_name for u in usernames), f"{full_name} not found in {usernames}"
+
+        label = cast_keccak(self.foundry, username)
+        with pytest.raises(RuntimeError):
+            cast_send(self.foundry, registrar, "release(bytes32)", [label])
+        logger.info("Early release correctly reverted")
+
+        cast_rpc(self.foundry, "evm_increaseTime", [one_year_seconds + 1])
+        cast_rpc(self.foundry, "evm_mine")
+        logger.info("Advanced time past 365 days")
+
+        cast_send(self.foundry, registrar, "release(bytes32)", [label])
+        logger.info(f"Released {full_name}")
+
+        owner = self.rpc_client.ens_service.owner_of(CHAIN_ID, full_name)
+        assert owner == "0x0000000000000000000000000000000000000000", f"Owner should be zero after release: {owner}"
+
+        self.rpc_client.ens_service.remove(CHAIN_ID, full_name)
+
+        usernames = self.rpc_client.ens_service.get_ens_usernames()
+        active = [u.get("username") for u in usernames if not u.get("removed")]
+        assert full_name not in active, f"{full_name} should have been removed"
