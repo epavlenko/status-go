@@ -939,3 +939,8 @@ class WakuextService(Service):
         params = [ens_name, profile_image, customization_color]
         response = self.rpc_request("sendContactUpdates", params)
         return response
+
+    def ens_verified(self, public_key: str, ens_name: str):
+        params = [public_key, ens_name]
+        response = self.rpc_request("ensVerified", params)
+        return response
