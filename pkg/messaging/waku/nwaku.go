@@ -63,6 +63,7 @@ import (
 	cryptotypes "github.com/status-im/status-go/internal/crypto/types"
 	"github.com/status-im/status-go/internal/logutils"
 	"github.com/status-im/status-go/internal/timesource"
+	messaginglifecycle "github.com/status-im/status-go/pkg/messaging/lifecycle"
 	common2 "github.com/status-im/status-go/pkg/messaging/waku/common"
 	types2 "github.com/status-im/status-go/pkg/messaging/waku/types"
 
@@ -819,11 +820,28 @@ func (w *Waku) Start() error {
 		defer w.wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
+		sub := messaginglifecycle.SubscribePausedBackground()
+		defer sub.Unsubscribe()
+		paused := <-sub.C()
+		var tickerC <-chan time.Time
+		if !paused {
+			tickerC = ticker.C
+		}
 		for {
 			select {
 			case <-w.ctx.Done():
 				return
-			case <-ticker.C:
+			case pausedState, ok := <-sub.C():
+				if !ok {
+					return
+				}
+				paused = pausedState
+				if paused {
+					tickerC = nil
+				} else {
+					tickerC = ticker.C
+				}
+			case <-tickerC:
 				w.checkForConnectionChanges()
 			case <-w.node.TopicHealthChan:
 				// TODO: https://github.com/status-im/status-go/issues/4628

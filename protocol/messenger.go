@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -37,6 +38,8 @@ import (
 	"github.com/status-im/status-go/internal/images"
 	"github.com/status-im/status-go/internal/instrumentation/trace"
 	messaging2 "github.com/status-im/status-go/pkg/messaging"
+	datasync "github.com/status-im/status-go/pkg/messaging/layers/reliability/datasync"
+	messaginglifecycle "github.com/status-im/status-go/pkg/messaging/lifecycle"
 	types2 "github.com/status-im/status-go/pkg/messaging/types"
 	"github.com/status-im/status-go/protocol/contacts"
 
@@ -132,6 +135,7 @@ type Messenger struct {
 	httpServer                 *server.MediaServer
 
 	started           bool
+	pausedBackground  atomic.Bool
 	quit              chan struct{}
 	ctx               context.Context
 	cancel            context.CancelFunc
@@ -517,6 +521,7 @@ func (m *Messenger) processSentMessage(id string) error {
 }
 
 func (m *Messenger) ToForeground() {
+	m.SetPausedBackground(false)
 	if m.httpServer != nil {
 		m.httpServer.ToForeground()
 	}
@@ -525,9 +530,27 @@ func (m *Messenger) ToForeground() {
 }
 
 func (m *Messenger) ToBackground() {
+	m.SetPausedBackground(true)
 	if m.httpServer != nil {
 		m.httpServer.ToBackground()
 	}
+}
+
+func (m *Messenger) SetPausedBackground(paused bool) {
+	m.pausedBackground.Store(paused)
+	messaginglifecycle.SetPausedBackground(paused)
+	datasync.SetPausedBackground(paused)
+	if m.pushNotificationClient != nil {
+		if paused {
+			m.pushNotificationClient.Offline()
+		} else {
+			m.pushNotificationClient.Online()
+		}
+	}
+}
+
+func (m *Messenger) isPausedBackground() bool {
+	return m.pausedBackground.Load()
 }
 
 func (m *Messenger) Start() (*MessengerResponse, error) {
@@ -1301,6 +1324,9 @@ func (m *Messenger) watchConnectionChange() {
 			case status := <-subscription.C():
 				processNewState(status.IsOnline)
 			case <-ticker.C:
+				if m.isPausedBackground() {
+					continue
+				}
 				processNewState(m.Online())
 			case <-m.quit:
 				return
@@ -1329,6 +1355,15 @@ func (m *Messenger) watchChatsToUnmute() {
 		defer gocommon.LogOnPanic()
 		defer m.shutdownWaitGroup.Done()
 		for {
+			if m.isPausedBackground() {
+				select {
+				case <-time.After(time.Minute):
+				case <-m.quit:
+					return
+				}
+				continue
+			}
+
 			// Execute the check immediately upon starting
 			response := &MessengerResponse{}
 			currTime := time.Now()
@@ -1393,6 +1428,9 @@ func (m *Messenger) watchCommunitiesToUnmute() {
 		for {
 			select {
 			case <-ticker.C:
+				if m.isPausedBackground() {
+					continue
+				}
 				check()
 			case <-m.quit:
 				return
@@ -1457,6 +1495,9 @@ func (m *Messenger) watchPendingCommunityRequestToJoin() {
 		for {
 			select {
 			case <-time.After(time.Minute * 10):
+				if m.isPausedBackground() {
+					continue
+				}
 				_, err := m.CheckAndDeletePendingRequestToJoinCommunity(context.Background(), false)
 				if err != nil {
 					m.logger.Error("failed to check and delete pending request to join community", zap.Error(err))
