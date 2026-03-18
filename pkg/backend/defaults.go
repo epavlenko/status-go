@@ -40,7 +40,7 @@ var (
 	DefaultFleet = params.FleetStatusProd
 )
 
-func resolveDefaultFleet() string {
+func ResolveDefaultFleet() string {
 	if envFleet := os.Getenv("STATUS_FLEET"); envFleet != "" && params.IsFleetSupported(envFleet) {
 		return envFleet
 	}
@@ -323,7 +323,7 @@ func DefaultNodeConfig(installationID, keyUID string, request *requests.CreateAc
 
 	fleet := request.WakuV2Fleet
 	if fleet == "" {
-		fleet = resolveDefaultFleet()
+		fleet = ResolveDefaultFleet()
 	}
 
 	err := SetFleet(fleet, nodeConfig)
