@@ -3,7 +3,9 @@ package messaging
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -42,8 +44,10 @@ type Core struct {
 
 	publisher *pubsub.Publisher
 
-	wg   sync.WaitGroup
-	quit chan struct{}
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	quit   chan struct{}
 
 	wakumetrics *wakumetrics2.Client
 }
@@ -62,6 +66,7 @@ type CoreParams struct {
 func newCore(waku wakutypes.Waku, params CoreParams, config *config) (*Core, error) {
 	var err error
 	stack := &common.MessagingStack{}
+	ctx, cancel := context.WithCancel(context.Background())
 
 	stack.Transport, err = transport.NewTransport(
 		waku,
@@ -92,18 +97,6 @@ func newCore(waku wakutypes.Waku, params CoreParams, config *config) (*Core, err
 		params.Identity,
 		config.logger,
 	)
-	stack.Reliability.SetMissingDependenciesHandler(func(messageID string, missingDeps []string, channelID string) error {
-		err := stack.Transport.FetchMessagesByHashes(context.Background(), missingDeps)
-		if err != nil {
-			config.logger.Debug("failed to fetch missing dependencies from storenode",
-				zap.String("messageID", messageID),
-				zap.String("channelID", channelID),
-				zap.Strings("missingDeps", missingDeps),
-				zap.Error(err),
-			)
-		}
-		return err
-	})
 
 	publisher := pubsub.NewPublisher()
 
@@ -117,15 +110,21 @@ func newCore(waku wakutypes.Waku, params CoreParams, config *config) (*Core, err
 		config.tracer,
 	)
 
-	return &Core{
+	core := &Core{
 		config:     *config,
 		identity:   params.Identity,
 		waku:       waku,
 		stack:      stack,
 		controller: controller,
 		publisher:  publisher,
+		ctx:        ctx,
+		cancel:     cancel,
 		quit:       make(chan struct{}),
-	}, nil
+	}
+
+	stack.Reliability.SetMissingDependenciesHandler(core.fetchMissingDependenciesAsync)
+
+	return core, nil
 }
 
 func NewCore(params CoreParams, options ...Options) (*Core, error) {
@@ -185,6 +184,7 @@ func (c *Core) start() error {
 
 func (c *Core) stop() error {
 	close(c.quit)
+	c.cancel()
 
 	err := c.controller.Stop()
 	if err != nil {
@@ -204,6 +204,41 @@ func (c *Core) stop() error {
 	}
 
 	c.wg.Wait()
+
+	return nil
+}
+
+func (c *Core) fetchMissingDependenciesAsync(messageID string, missingDeps []string, channelID string) error {
+	if len(missingDeps) == 0 {
+		return nil
+	}
+
+	select {
+	case <-c.ctx.Done():
+		return nil
+	default:
+	}
+
+	fmt.Println("Scheduling missing dependency fetch for message", messageID, "with deps", missingDeps)
+
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+
+		fetchCtx, cancel := context.WithTimeout(c.ctx, 30*time.Second)
+		defer cancel()
+
+		err := c.stack.Transport.FetchMessagesByHashes(fetchCtx, missingDeps)
+		if err != nil {
+			fmt.Println("failed to fetch missing dependencies from storenode", "messageID", messageID, "channelID", channelID, "missingDeps", missingDeps, "error", err)
+			c.logger.Debug("failed to fetch missing dependencies from storenode",
+				zap.String("messageID", messageID),
+				zap.String("channelID", channelID),
+				zap.Strings("missingDeps", missingDeps),
+				zap.Error(err),
+			)
+		}
+	}()
 
 	return nil
 }
