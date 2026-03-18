@@ -2,6 +2,7 @@ package reliability
 
 import (
 	"crypto/ecdsa"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -24,6 +25,10 @@ import (
 //	messages: the original messages that were wrapped
 type MessageDispatcher func(publicKey *ecdsa.PublicKey, wrappedPayload []byte, messages [][]byte) error
 
+// MissingDependenciesHandler is triggered when SDS reports missing dependencies
+// for an incoming message.
+type MissingDependenciesHandler func(messageID string, missingDeps []string, channelID string) error
+
 type Reliability struct {
 	identity              *ecdsa.PrivateKey
 	datasync              *datasync2.DataSync
@@ -31,16 +36,48 @@ type Reliability struct {
 	mvdsStatusChangeEvent chan mvdsnode.PeerStatusChangeEvent
 	sdsManager            *sds.ReliabilityManager
 	logger                *zap.Logger
+
+	missingDepsHandlerMu sync.RWMutex
+	missingDepsHandler   MissingDependenciesHandler
 }
 
 func NewReliability(datasyncPersistence mvdsnode.Persistence, identity *ecdsa.PrivateKey, logger *zap.Logger) *Reliability {
 	logger = logger.Named("reliability")
-	return &Reliability{
+	r := &Reliability{
 		identity:              identity,
 		mvdsPersistence:       datasyncPersistence,
 		mvdsStatusChangeEvent: make(chan mvdsnode.PeerStatusChangeEvent, 5),
-		sdsManager:            newSdsReliabilityManager(logger.Named("sds")),
 		logger:                logger,
+	}
+
+	r.sdsManager = newSdsReliabilityManager(logger.Named("sds"), r.handleMissingDependencies)
+
+	return r
+}
+
+// SetMissingDependenciesHandler configures how SDS missing dependencies should be handled.
+func (r *Reliability) SetMissingDependenciesHandler(handler MissingDependenciesHandler) {
+	r.missingDepsHandlerMu.Lock()
+	defer r.missingDepsHandlerMu.Unlock()
+	r.missingDepsHandler = handler
+}
+
+func (r *Reliability) handleMissingDependencies(messageID sds.MessageID, missingDeps []sds.MessageID, channelID string) {
+	r.missingDepsHandlerMu.RLock()
+	handler := r.missingDepsHandler
+	r.missingDepsHandlerMu.RUnlock()
+
+	if handler == nil || len(missingDeps) == 0 {
+		return
+	}
+
+	missingDepsAsString := make([]string, len(missingDeps))
+	for i, dep := range missingDeps {
+		missingDepsAsString[i] = string(dep)
+	}
+
+	if err := handler(string(messageID), missingDepsAsString, channelID); err != nil {
+		r.logger.Debug("failed to fetch missing dependencies from sds callback", zap.Error(err))
 	}
 }
 

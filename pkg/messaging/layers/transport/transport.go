@@ -610,6 +610,28 @@ func (t *Transport) ProcessMailserverBatch(
 	return t.waku.ProcessMailserverBatch(ctx, batch, storenode, pageLimit, shouldProcessNextPage, processEnvelopes)
 }
 
+func (t *Transport) FetchMessagesByHashes(ctx context.Context, messageHashes []string) error {
+	if len(messageHashes) == 0 {
+		return nil
+	}
+
+	storenode := t.waku.GetActiveStorenode()
+	if storenode.ID == "" {
+		return errors.New("no active storenode")
+	}
+
+	type hashFetcher interface {
+		FetchMessagesByHashes(ctx context.Context, storenode peer.AddrInfo, messageHashes []string) error
+	}
+
+	fetcher, ok := t.waku.(hashFetcher)
+	if !ok {
+		return errors.New("waku backend does not support hash-based message fetch")
+	}
+
+	return fetcher.FetchMessagesByHashes(ctx, storenode, messageHashes)
+}
+
 func (t *Transport) SetStorenodeConfigProvider(c history.StorenodeConfigProvider) {
 	t.waku.SetStorenodeConfigProvider(c)
 }

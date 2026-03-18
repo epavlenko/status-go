@@ -9,7 +9,7 @@ import (
 	cryptotypes "github.com/status-im/status-go/internal/crypto/types"
 )
 
-func newSdsReliabilityManager(logger *zap.Logger) *sds.ReliabilityManager {
+func newSdsReliabilityManager(logger *zap.Logger, onMissingDependencies func(messageId sds.MessageID, missingDeps []sds.MessageID, channelId string)) *sds.ReliabilityManager {
 	reliabilityManager, err := sds.NewReliabilityManager(logger)
 	if err != nil {
 		logger.Error("failed to create ReliabilityManager", zap.Error(err))
@@ -25,6 +25,10 @@ func newSdsReliabilityManager(logger *zap.Logger) *sds.ReliabilityManager {
 				zap.String("messageId", string(messageId)),
 				zap.String("channelId", channelId),
 				zap.Any("missingDeps", missingDeps))
+
+			if onMissingDependencies != nil {
+				onMissingDependencies(messageId, missingDeps, channelId)
+			}
 		},
 		OnMessageReady: func(messageId sds.MessageID, channelId string) {
 			logger.Debug("message ready",

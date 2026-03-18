@@ -92,6 +92,18 @@ func newCore(waku wakutypes.Waku, params CoreParams, config *config) (*Core, err
 		params.Identity,
 		config.logger,
 	)
+	stack.Reliability.SetMissingDependenciesHandler(func(messageID string, missingDeps []string, channelID string) error {
+		err := stack.Transport.FetchMessagesByHashes(context.Background(), missingDeps)
+		if err != nil {
+			config.logger.Debug("failed to fetch missing dependencies from storenode",
+				zap.String("messageID", messageID),
+				zap.String("channelID", channelID),
+				zap.Strings("missingDeps", missingDeps),
+				zap.Error(err),
+			)
+		}
+		return err
+	})
 
 	publisher := pubsub.NewPublisher()
 

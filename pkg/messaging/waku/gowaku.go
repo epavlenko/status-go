@@ -1967,6 +1967,66 @@ func (w *Waku) ProcessMailserverBatch(
 	return w.HistoryRetriever.Query(ctx, criteria, storenode, pageLimit, shouldProcessNextPage, processEnvelopes)
 }
 
+func (w *Waku) FetchMessagesByHashes(ctx context.Context, storenode peer.AddrInfo, messageHashes []string) error {
+	if len(messageHashes) == 0 {
+		return nil
+	}
+
+	parsedHashes := make([]pb.MessageHash, 0, len(messageHashes))
+	for _, messageHash := range messageHashes {
+		decodedHash, err := hexutil.Decode(messageHash)
+		if err != nil {
+			w.logger.Debug("invalid message hash for storenode fetch", zap.String("messageHash", messageHash), zap.Error(err))
+			continue
+		}
+		parsedHashes = append(parsedHashes, pb.ToMessageHash(decodedHash))
+	}
+
+	if len(parsedHashes) == 0 {
+		return nil
+	}
+
+	type hashRequestor interface {
+		GetMessagesByHash(ctx context.Context, peerInfo peer.AddrInfo, pageSize uint64, messageHashes []pb.MessageHash) (commonapi.StoreRequestResult, error)
+	}
+
+	requestor, ok := missing.NewDefaultStorenodeRequestor(w.node.Store()).(hashRequestor)
+	if !ok {
+		return errors.New("storenode requestor does not support fetching by hash")
+	}
+
+	result, err := requestor.GetMessagesByHash(ctx, storenode, uint64(len(parsedHashes)), parsedHashes)
+	if err != nil {
+		return err
+	}
+
+	processResult := func() error {
+		for _, mkv := range result.Messages() {
+			envelope := protocol.NewEnvelope(mkv.Message, mkv.Message.GetTimestamp(), mkv.GetPubsubTopic())
+			if err := w.OnNewEnvelopes(envelope, common2.StoreMessageType, true); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	for {
+		if err := processResult(); err != nil {
+			return err
+		}
+
+		if result.Cursor() == nil {
+			break
+		}
+
+		if err := result.Next(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (w *Waku) IsStorenodeAvailable(peerID peer.ID) bool {
 	return w.StorenodeCycle.IsStorenodeAvailable(peerID)
 }
