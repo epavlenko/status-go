@@ -267,7 +267,8 @@ func (m *Messenger) RequestAllHistoricMessages(withRetries bool) (*MessengerResp
 		return nil, err
 	}
 
-	if !shouldSync {
+	if shouldSync {
+		fmt.Println("Skipping history sync")
 		return nil, nil
 	}
 
