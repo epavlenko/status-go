@@ -79,7 +79,8 @@ type LoginParams struct {
 
 // StatusBackend implements the Status.im service over go-ethereum
 type StatusBackend struct {
-	mu sync.Mutex
+	mu          sync.Mutex
+	lifecycleMu sync.Mutex
 	// rootDataDir is the same for all networks.
 	rootDataDir string
 	appDB       *sql.DB
@@ -2058,18 +2059,26 @@ func (b *StatusBackend) getVerifiedWalletAccount(address, password string) (*gen
 // AppStateChange handles app state changes (background/foreground).
 // state values: see https://facebook.github.io/react-native/docs/appstate.html
 func (b *StatusBackend) AppStateChange(state AppState) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	if !state.IsValid() {
 		b.logger.Warn("invalid app state, not reporting app state change", zap.Any("state", state))
 		return
 	}
 
+	b.mu.Lock()
 	b.appState = state
-
 	if b.statusNode == nil {
 		b.logger.Warn("statusNode nil, applying app state change without running node")
+	}
+	b.mu.Unlock()
+
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
+
+	if state == AppStateForeground && b.lifecycleState == AppLifecycleRunning {
+		return
+	}
+	if state != AppStateForeground && b.lifecycleState == AppLifecyclePausedBackground {
+		return
 	}
 
 	if state == AppStateForeground {
@@ -2102,6 +2111,10 @@ func (b *StatusBackend) StartLocalNotifications() error {
 func (b *StatusBackend) Logout() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	// Drain any in-progress AppStateChange transition before stopping the node.
+	// Lock order is always b.mu → lifecycleMu to prevent deadlock.
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
 
 	b.logger.Debug("logging out")
 

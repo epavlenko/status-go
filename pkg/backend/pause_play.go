@@ -3,6 +3,7 @@ package backend
 import (
 	"fmt"
 
+	"github.com/status-im/status-go/pkg/backend/node"
 	"github.com/status-im/status-go/protocol"
 )
 
@@ -18,9 +19,11 @@ const (
 
 func (s AppLifecycleState) String() string { return string(s) }
 
+// LifecycleState returns the current backend lifecycle state.
+// Requires lifecycleMu since lifecycleState is written by pause/resumeLocked.
 func (b *StatusBackend) LifecycleState() AppLifecycleState {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.lifecycleMu.Lock()
+	defer b.lifecycleMu.Unlock()
 	return b.lifecycleState
 }
 
@@ -31,14 +34,19 @@ func (b *StatusBackend) pauseLocked() error {
 	if b.lifecycleState == AppLifecyclePausedBackground {
 		return nil
 	}
-	if b.statusNode == nil || !b.statusNode.IsRunning() {
+	// Snapshot statusNode pointer under b.mu to avoid data race with Logout.
+	b.mu.Lock()
+	sn := b.statusNode
+	b.mu.Unlock()
+
+	if sn == nil || !sn.IsRunning() {
 		b.lifecycleState = AppLifecycleStopped
 		return nil
 	}
-	if messenger := b.currentMessengerLocked(); messenger != nil {
+	if messenger := b.currentMessenger(sn); messenger != nil {
 		messenger.ToBackground()
 	}
-	if err := b.statusNode.PauseBackground(); err != nil {
+	if err := sn.PauseBackground(); err != nil {
 		return fmt.Errorf("pause background: %w", err)
 	}
 	b.lifecycleState = AppLifecyclePausedBackground
@@ -52,25 +60,30 @@ func (b *StatusBackend) resumeLocked() error {
 	if b.lifecycleState == AppLifecycleRunning {
 		return nil
 	}
-	if b.statusNode == nil || !b.statusNode.IsRunning() {
+	// Snapshot statusNode pointer under b.mu to avoid data race with Logout.
+	b.mu.Lock()
+	sn := b.statusNode
+	b.mu.Unlock()
+
+	if sn == nil || !sn.IsRunning() {
 		b.lifecycleState = AppLifecycleStopped
 		return nil
 	}
-	if messenger := b.currentMessengerLocked(); messenger != nil {
+	if messenger := b.currentMessenger(sn); messenger != nil {
 		messenger.ToForeground()
 	}
 
 	b.lifecycleState = AppLifecycleResumingForeground
-	if err := b.statusNode.ResumeForeground(); err != nil {
+	if err := sn.ResumeForeground(); err != nil {
 		return fmt.Errorf("resume foreground: %w", err)
 	}
 	b.lifecycleState = AppLifecycleRunning
 	return nil
 }
 
-func (b *StatusBackend) currentMessengerLocked() *protocol.Messenger {
-	if b.statusNode == nil || b.statusNode.WakuV2ExtService() == nil {
+func (b *StatusBackend) currentMessenger(sn *node.StatusNode) *protocol.Messenger {
+	if sn == nil || sn.WakuV2ExtService() == nil {
 		return nil
 	}
-	return b.statusNode.WakuV2ExtService().Messenger()
+	return sn.WakuV2ExtService().Messenger()
 }
