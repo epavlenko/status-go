@@ -20,15 +20,15 @@ func newSdsReliabilityManager(logger *zap.Logger, onMissingDependencies func(mes
 		OnMessageSent: func(messageId sds.MessageID, channelId string) {
 			logger.Debug("message sent with sds", zap.String("messageId", string(messageId)), zap.String("channelId", channelId))
 		},
-		OnMissingDependencies: func(messageId sds.MessageID, missingDeps []sds.MessageID, channelId string) {
+		OnMissingDependencies: func(messageId sds.MessageID, missingDeps []sds.HistoryEntry, channelId string) {
 			logger.Debug("missing dependencies",
 				zap.String("messageId", string(messageId)),
 				zap.String("channelId", channelId),
 				zap.Any("missingDeps", missingDeps))
 
-			if onMissingDependencies != nil {
-				onMissingDependencies(messageId, missingDeps, channelId)
-			}
+			// if onMissingDependencies != nil {
+			// 	onMissingDependencies(messageId, missingDeps, channelId)
+			// }
 		},
 		OnMessageReady: func(messageId sds.MessageID, channelId string) {
 			logger.Debug("message ready",

@@ -115,7 +115,7 @@ endif
 # `nim-sds` variables
 
 # Pin nim-sds revision here. Can be a tag (default) or commit hash.
-NIM_SDS_VERSION ?= v0.2.4
+NIM_SDS_VERSION ?= 9f7ae0c7dfb860d24f788ec3f65545335a15ed92
 
 # Option 1: Provide NIM_SDS_SOURCE_DIR. Make clones it if missing.
 NIM_SDS_SOURCE_DIR ?= $(GIT_ROOT)/../nim-sds
